@@ -54,7 +54,8 @@ def print_progress(t, T):
 
 
 class XPySom:
-    def __init__(self, x, y, input_len,
+    def __init__(self, x, y, input_len, 
+                 init_type='random', weights_file=None,
                  sigma=0, sigmaN=1,
                  learning_rate=0.5, learning_rateN=0.01, decay_function='exponential',
                  neighborhood_function='gaussian', std_coeff=0.5,
@@ -136,6 +137,8 @@ class XPySom:
         compact_support: bool, optional (default=False)
             Cut the neighbor function to 0 beyond neighbor radius sigma
 
+        weights_file: str, optional (default=None)
+            Path to a file containing pre-trained weights to initialize the SOM.
         """
 
         if sigma >= x or sigma >= y:
@@ -158,9 +161,26 @@ class XPySom:
         self._sigmaN = sigmaN
         self._input_len = input_len
 
-        # random initialization
-        self._weights = self._random_generator.rand(x, y, input_len)*2-1
-        self._weights /= np.linalg.norm(self._weights, axis=-1, keepdims=True)
+        # Initialize weights
+        if init_type == 'transfer':
+            print("Transfer SOM option selected. Loading weights from file...")
+            if os.path.exists(weights_file):
+                with open(weights_file, 'rb') as f:
+                    self._weights = pickle.load(f)
+                    if isinstance(self._weights, np.ndarray):
+                        self._weights = self.xp.asarray(self._weights)
+                    elif isinstance(self._weights, cp.ndarray):
+                        self._weights = self.xp.asarray(self._weights)
+                    print(f"Weights loaded from {weights_file}")
+            else:
+                print(f"Weights file {weights_file} does not exist.")
+        else: # random initialization
+            print("Random Initialization option selected.")
+            self._weights = self._random_generator.rand(x, y, input_len)*2-1
+            self._weights /= np.linalg.norm(self._weights, axis=-1, keepdims=True)
+        
+        if self._weights.shape != (x, y, input_len):
+            raise ValueError(f"Loaded weights dimensions {self._weights.shape} do not match the specified dimensions ({x}, {y}, {input_len})")
 
         # used to evaluate the neighborhood function
         self._neigx = self.xp.arange(x)
